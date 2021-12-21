@@ -152,11 +152,61 @@ As mentioned above, the default Falco configuration only sends alerts to the pod
 
 which are covered in more detail here: https://falco.org/docs/alerts/
 
-# Cleaning up
-* To clean-up the resources created in this guide, but preserve the Kubernetes cluster, uninstall the helm release:
+Additionally, Falco created the [Falcosidekick](https://github.com/falcosecurity/falcosidekick) project, which can receive Falco alerts from many Falco pods and forward those alerts to a large variety of outputs.
+
+# Centralized Falco alerts
+In addition to using the Sysdig projects (either Falco directly, or also deploying Falcosidekick), Falco logs can also be centralized by scraping and collecting the Kubernetes log files. Since Falco writes alert messages to Syslog, which get captured by Kubernetes, scooping up the Kubernetes logs will also scoop up the Falco logs.
+
+## Capturing Kubernetes logs with PromTail and Loki
+To capture and display the Falco logs, we'll use three projects from the folks at Grafana Labs:
+1. [Promtail](https://grafana.com/docs/loki/latest/clients/promtail/) - an agent that ships logs to Loki, which will be used to collect Kubernetes log files
+2. [Loki](https://grafana.com/docs/loki/latest/) - the backend logging infrastructure that will receive and store logs from the Kubernetes cluster
+3. [Grafana](https://grafana.com/docs/grafana/latest/) - a frontend visualization system that will be used to display the logs stored in Loki
+
+* Add the Loki repository to Helm:
 ```
-> helm uninstall falco -n falco
+> helm repo add loki https://grafana.github.io/loki/charts                                                       
+"loki" has been added to your repositories
+```
+* Install the Loki Stack (Promtail, Loki, Grafana) into the existing falco namespace:
+```
+> helm install loki grafana/loki-stack --namespace falco --set grafana.enabled=true
+NAME: loki
+LAST DEPLOYED: Mon Dec 20 17:35:27 2021
+NAMESPACE: falco
+STATUS: deployed
+REVISION: 1
+NOTES:
+The Loki stack has been deployed to your cluster. Loki can now be added as a datasource in Grafana.
+
+See http://docs.grafana.org/features/datasources/loki/ for more detail.
+```
+* Get the Grafana admin password:
+```
+> export GRAFANA_PASSWORD=$(kubectl get secret --namespace falco loki-grafana -o jsonpath="{.data.admin-password}" | base64 --decode ; echo)
+```
+* Use Kubernetes port-forwarding to be able to access the Grafana dashboard:
+```
+>   kubectl port-forward --namespace falco service/loki-grafana 3000:80
+```
+* Access the Grafana dashboard, by navigating a browser to http://localhost:3000/login, and log in using username = admin, and password = $GRAFANA_PASSWORD.
+
+Grafana will already be configured with a Loki data source, and Promtail will already be streaming Kubernetes container logs to Loki. So we can immediately start seeing Falco logs in Grafana. By navigating to the Grafana 'Explore' tab, the Falco logs, across all of the Falco pods in the entire cluster, can be searched using Loki's query language, LogQL.
+
+To view all Falco logs, across all Falco pods, in the falco namespace, run the following query: `{app="falco", namespace="falco"}`. An example of a log query across the Falco logs may look like the following:
+![Loki](Loki.jpg)
+Above we can see the same 'package management' error we generated earlier, except that the log line is now stored in Loki, and we can easily query across all of our Falco pods.
+
+# Cleaning up
+* To clean-up the resources created in this guide, but preserve the Kubernetes cluster, uninstall the Falco helm release:
+```
+> helm uninstall falco --namespace falco
 release "falco" uninstalled
+```
+* If the Loki stack was deployed, uninstall the Loki helm release:
+```
+helm uninstall loki --namespace falco
+release "loki" uninstalled
 ```
 * To delete everything, delete the entire Kubernetes cluster:
 ```
