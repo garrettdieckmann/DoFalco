@@ -187,9 +187,11 @@ See http://docs.grafana.org/features/datasources/loki/ for more detail.
 ```
 * Use Kubernetes port-forwarding to be able to access the Grafana dashboard:
 ```
->   kubectl port-forward --namespace falco service/loki-grafana 3000:80
+> kubectl port-forward --namespace falco service/loki-grafana 3000:80
 ```
-* Access the Grafana dashboard, by navigating a browser to http://localhost:3000/login, and log in using username = admin, and password = $GRAFANA_PASSWORD.
+* Access the Grafana dashboard, by navigating a browser to http://localhost:3000/login, and log in using:
+  * username = admin
+  * password = $GRAFANA_PASSWORD
 
 Grafana will already be configured with a Loki data source, and Promtail will already be streaming Kubernetes container logs to Loki. So we can immediately start seeing Falco logs in Grafana. By navigating to the Grafana 'Explore' tab, the Falco logs, across all of the Falco pods in the entire cluster, can be searched using Loki's query language, LogQL.
 
@@ -205,7 +207,7 @@ release "falco" uninstalled
 ```
 * If the Loki stack was deployed, uninstall the Loki helm release:
 ```
-helm uninstall loki --namespace falco
+> helm uninstall loki --namespace falco
 release "loki" uninstalled
 ```
 * To delete everything, delete the entire Kubernetes cluster:
